@@ -1,0 +1,335 @@
+---
+title: "Assignment02-Data Viz and Wrangling"
+output: html_document
+---
+
+# Data Wrangling
+
+## Setup in R
+
+1. Load data and merge two data sets. 
+
+```{r load-merge}
+#install.packages("readr")
+library(readr)
+library(data.table)
+
+ind=fread("/Users/sherryshen/Desktop/chs_individual.csv")
+reg <- fread("/Users/sherryshen/Desktop/chs_regional.csv")
+dim(ind)
+dim(reg)
+head(ind)
+head(reg)
+
+dat1 <- merge(
+  x = ind, y = reg, by = "townname",
+  all.x = TRUE, all.y = FALSE
+  )
+dim(dat1)
+head(dat1)
+
+#choose the main variables to form a simpler data set
+dat <- dat1[,.(townname,male,hispanic,bmi,asthma,smoke,gasstove,fev,pm25_mass,lon,lat)]
+head(dat)
+```
+ 
+After merging "individual" and "regional" data sets, we should have 1200 rows and (23+27-1)=49 columns. We can see the results matches. Then we can form a simpler data set by main variables for future convenience. 
+
+## Dealing with Missing Value
+
+Now, let's deal with missing value by imputing "fev and bmi" using the average within the variables “male” and “hispanic"; replace "astham, smoke and gasstove" using the mode within the variables "male" and "hispanic. 
+
+```{r dealingNA}
+#compute average for fev and bmi
+mean_dat <- dat[, .(
+  mean_fev    = mean(fev, na.rm = TRUE),
+  mean_bmi    = mean(bmi, na.rm = TRUE)
+  ),by = .(male, hispanic)]
+mean_dat
+
+#compute mode for asthma 
+dat[, .N, by = .(asthma, male, hispanic)]
+dat[, .N, by = .(smoke, male, hispanic)]
+dat[, .N, by = .(gasstove, male, hispanic)]
+
+
+# impute NA in fev
+#male=0&hispanic=0 mean(fev)=1945.743; male=0&hispanic=1 mean(fev)=1977.241;
+#male=1&hispanic=1 mean(fev)=2120.266; male=1&hispanic=0 mean(fev)=2090.258
+dat[, fev2 := fev]
+
+for (i in 1:1200) {
+  if (is.na(dat$fev[i])==T){
+    if (dat$male[i]==0){
+      if (dat$hispanic[i]==0){
+        dat$fev2[i]=1945.743
+      }else{
+          dat$fev2[i]=1977.241}
+    }else{
+      if (dat$hispanic[i]==0){
+        dat$fev2[i]=2090.258
+      }else{
+          dat$fev2[i]=2120.266}
+    }
+  }else{dat$fev2[i]=dat$fev[i]}
+}
+
+# impute NA in bmi
+#male=0&hispanic=0 mean(bmi)=18.05281; male=0&hispanic=1 mean(bmi)=18.63201;
+#male=1&hispanic=1 mean(bmi)=19.41148; male=1&hispanic=0 mean(bmi)=18.14035
+dat[, bmi2 := bmi]
+
+for (i in 1:1200) {
+  if (is.na(dat$bmi[i])==T){
+    if (dat$male[i]==0){
+      if (dat$hispanic[i]==0){
+        dat$bmi2[i]=18.05281	
+      }else{
+          dat$bmi2[i]=18.63201}
+    }else{
+      if (dat$hispanic[i]==0){
+        dat$bmi2[i]=18.14035	
+      }else{
+          dat$bmi2[i]=19.41148}	
+    }
+  }else{dat$bmi2[i]=dat$bmi[i]}
+}
+
+# impute asthma
+#male=0&hispanic=0 mode(asthma)=0; male=0&hispanic=1 mode(asthma)=0;
+#male=1&hispanic=1 mode(asthma)=0; male=1&hispanic=0 mode(asthma)=0
+dat[, asthma2 := asthma]
+dat[, asthma2 := ifelse(is.na(asthma)==T,0,asthma)]
+
+#impute smoke
+#male=0&hispanic=0 mode(smoke)=0; male=0&hispanic=1 mode(smoke)=0;
+#male=1&hispanic=1 mode(smoke)=0; male=1&hispanic=0 mode(smoke)=0
+dat[, smoke2 := smoke]
+dat[, smoke2 := ifelse(is.na(smoke)==T,0,smoke)]
+
+#impute gasstove
+#male=0&hispanic=0 mode(gas)=1; male=0&hispanic=1 mode(gas)=1;
+#male=1&hispanic=1 mode(gas)=1; male=1&hispanic=0 mode(gas)=0
+dat[, gasstove2 := gasstove]
+
+for (i in 1:1200) {
+  if (is.na(dat$gasstove[i])==T){
+    if (dat$male[i]==0){
+      if (dat$hispanic[i]==0){
+        dat$gasstove2[i]=1	
+      }else{
+          dat$gasstove2[i]=1}
+    }else{
+      if (dat$hispanic[i]==0){
+        dat$gasstove2[i]=0	
+      }else{
+          dat$gasstove2[i]=1}	
+    }
+  }else{dat$gasstove2[i]=dat$gasstove[i]}
+}
+
+#check whether we have NA after imputing
+sum(is.na(dat$fev2))
+sum(is.na(dat$bmi2))
+dat[, .N, by = asthma2]
+dat[, .N, by = smoke2]
+dat[, .N, by = gasstove2]
+```
+
+
+## Create new variables. 
+
+First, we create a new variable " obesity_level" based on "BMI". We cna see that there are 35 underweight, 886 normal, 87 overweight and 103 obese. 
+
+```{r obese-level}
+library(tidyverse)
+
+dat[, obesity_level := cut(bmi2,
+                           breaks = c(0, 14, 22, 24, Inf),
+                           include.lowest = TRUE,
+                           labels = c("underweight", "normal", "overweight", "obese"))]
+
+dat[, table(obesity_level)]
+
+dat %>%
+  group_by(obesity_level) %>%
+  summarise(n(),
+            min = min(bmi2),
+            max = max(bmi2)
+  )
+
+```
+
+Then we generate variable "smoke_gas_exposure". "1" stands for non-second-hand-smoker and no gas-stove; "2" stands for second-hand-smoker and no gas-stove; "3" stands for non-second-hand-smoker and gas stove; "4" stands for second-hand-smoker and gas stove. 
+
+```{r smoke-gas}
+dat[, smoke_gas_exposure := as.numeric(interaction(smoke2, gasstove2))]
+dat[, .N, by = smoke_gas_exposure]
+```
+
+## Summary Table
+Last, we can make the following summary table to see how “Forced expiratory volume in 1 second (ml)” and asthma indicator is distributed by town, sex, obesity level, and “smoke_gas_exposure.”
+
+```{r summary-table}
+head(dat)
+
+#by town
+dat %>%
+  group_by(townname) %>%
+  summarise(mean_fev    = mean(fev2),
+            sd_fev      = sd(fev2),
+            prop_asthma = length(which(asthma2 == 1)) / (1200-length(which(asthma2 == 1)))
+  )
+
+#by sex
+dat %>%
+  group_by(male) %>%
+  summarise(mean_fev    = mean(fev2),
+            sd_fev      = sd(fev2),
+            prop_asthma = length(which(asthma2 == 1)) / (1200-length(which(asthma2 == 1)))
+  )
+
+#by obesity
+dat %>%
+  group_by(obesity_level) %>%
+  summarise(mean_fev    = mean(fev2),
+            sd_fev      = sd(fev2),
+            prop_asthma = length(which(asthma2 == 1)) / (1200-length(which(asthma2 == 1)))
+  )
+
+#by town
+dat %>%
+  group_by(smoke_gas_exposure) %>%
+  summarise(mean_fev    = mean(fev2),
+            sd_fev      = sd(fev2),
+            prop_asthma = length(which(asthma2 == 1)) / (1200-length(which(asthma2 == 1)))
+  )
+
+```
+
+# Exploratory Data Analysis
+
+## Basic plots of main variables
+
+1. Scatter plots with regression lines of BMI vs FEV by town.
+
+```{r scatterplot}
+dat %>%
+  ggplot(mapping = aes(x=bmi2, y=fev2, color=townname))+
+  geom_point()+
+  stat_smooth(method=lm)+
+  facet_wrap(~townname, nrow=4) #generate individual plot instead one 
+  
+```
+From all the 16 scatter plots, we can see that "BMI" is positively related to "FEV". Town Lake Elsinore and Upland have the steeper slope than others.
+
+2. Histograms of FEV by Obesity_level and FEV by Smoke/Gas Exposure
+
+```{r histogram}
+dat %>%
+  ggplot()+
+  geom_histogram(mapping = aes(x=fev2, fill=obesity_level))+
+  facet_wrap(~obesity_level, nrow=2)+
+  scale_fill_brewer(palette = "PuOr")+
+  labs(titles="Forced expiratory volume in 1 second (ml) by obesity level", x="FEV", y="Count")+
+  theme_grey()
+
+```
+
+From the histograms above, we can see that most people have normal BMI(obesity_level). Within the normal group, FEV is normally distributed. 
+
+3. Barchart of BMI level by smoke/gas exposure.
+
+```{r barchart}
+table(dat$obesity_level,dat$smoke_gas_exposure)
+
+dat %>%
+  ggplot()+
+  geom_bar(mapping = aes(x=smoke_gas_exposure, fill=obesity_level))+
+  scale_fill_brewer(palette = "PuOr")+
+  labs(titles="BMI by Smoke/Gas Exposure", x="Smoke/Gas Exposure", y="Count")+
+  theme_classic()
+
+```
+
+From the bar chart above, we can see that, within each four group of Smoke/Gas exposure, most people have have normal BMI(obesity level). However, in the group that having exposure to gas but not second hand smoke, the proportion of overweight and obesity is much larger than other groups. 
+
+4. Statistical summary graphs of FEV by BMI and FEV by smoke/gas exposure category.
+
+```{r mean-sd-plot}
+#install.packages("Hmisc")
+library(Hmisc)
+
+dat %>%
+  ggplot(mapping = aes(x = obesity_level, y = fev2)) + 
+  stat_summary(fun.data="mean_sdl")+
+  labs(titles="Mean and SD of FEV by Obesity level", x="Obesity Level", y="FEV")
+
+dat %>%
+  ggplot(mapping = aes(x = smoke_gas_exposure, y = fev2)) + 
+  stat_summary(fun.data="mean_sdl")+
+  labs(titles="Mean and SD of FEV by Smoke/Gas Exposure", x="Smoke/Gas Exposure", y="FEV")
+
+
+```
+
+From the first statistic summary graph, we can see that the mean of FEV gets larger when obesity level increase. However, the standard deviations of FEV between each groups are quite similar. 
+From the second graph, we can see that the means and SD of FEV between each 4 Smoke/Gas exposure groups are almost the same. 
+
+
+
+5. A leaflet map showing the concentrations of PM2.5 mass in each of the CHS communities.
+
+```{r leaflet}
+library(leaflet)
+
+leaflet(dat) %>%
+  addProviderTiles('OpenStreetMap') %>%
+  addCircles(lat=~lat, lng=~lon, color="blue",opacity=1,
+             fillOpacity=1, radius=~(pm25_mass*300))
+```
+
+From the leaflet plot above, we can see that town around Los Angeles has higher PM2.5 Mass compared to those not located around LA. Especially, towns in the East side of LA has even higher PM2.5 Mass than other towns. 
+
+6. Association between FEV and PM2.5 Mass.
+
+Since we only have town-level PM2.5 Mass. Thus we can calculate town-level FEV (mean FEV by town), then draw regression line to see if these two variable are related. 
+
+```{r fev-pm25-association}
+dat[,fev_town :=mean(fev2),by=townname]
+head(dat)
+
+dat %>%
+  ggplot(mapping = aes(x=pm25_mass, y=fev_town))+
+  geom_point()+
+  stat_smooth(method=lm)+
+  labs(titles="FEV VS PM2.5_mass", x="PM2.5_mass", y="FEV")
+
+```
+
+From the scatter plot above, we can see that FEV is negatively associated with PM2.5 mass. In other words, as PM2.5 mass increase, FEV decrease. 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
