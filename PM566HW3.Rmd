@@ -115,6 +115,195 @@ kable(database)
 
 ```
 
+A new dataset has been added to the data science data repository https://github.com/USCbiostats/data-science-data/tree/master/03_pubmed. The dataset contains 3241 abstracts from articles across 5 search terms. Your job is to analyse these abstracts to find interesting insights.
+
+Tokenize the abstracts and count the number of each token. Do you see anything interesting? Does removing stop words change what tokens appear as the most frequent? What are the 5 most common tokens for each search term after removing stopwords?
+Tokenize the abstracts into bigrams. Find the 10 most common bigram and visualize them with ggplot2.
+
+We can see there are 5 search term in the dataset, which are "covid", "prostate cancer", "preeclampsia", "cystic fibrosis" and "meningitis". 
+```{r}
+library(tidyverse)
+library(dplyr)
+library(forcats)
+library(ggplot2)
+library(tidytext)
+
+pubmed <- read_csv("/Users/sherryshen/Desktop/pubmed.txt")
+pubmed <- pubmed %>%
+  select(abstract,term)
+
+pubmed %>%
+  count(term, sort =TRUE)
+
+```
+
+For term "covid", we can see the most 5 common words before removing stop_words are: "the, of, covid, 19, and"; After removing stop words, we have "covid, 19, disease, patients, pandemic". 
+```{r}
+pubmed %>%
+  filter(term %in% "covid") %>%
+  unnest_tokens(word, abstract) %>%
+  count(word, sort = TRUE) %>%
+  top_n(5, n) 
+
+#remove stopwords
+library(stringr)
+pubmed %>%
+  filter(term %in% "covid") %>%
+  unnest_tokens(word, abstract) %>%
+  anti_join(stop_words)%>%
+  count(word, sort = TRUE) %>%
+  top_n(5, n) 
+
+
+
+```
+
+If we token abstract in to bi-grams, we have the following results: 
+
+```{r}
+#token bi-gram
+pubmed %>%
+  filter(term %in% "covid") %>%
+  unnest_ngrams(ngram, abstract, n = 2) %>%
+  count(ngram, sort = TRUE) %>%
+  top_n(10, n) %>%
+  ggplot(aes(x = n, y = fct_reorder(ngram, n)))+
+  geom_col()
+```
+
+
+
+
+For term "prostate cancer", we can see the most 5 common words before removing stop_words are: "the, of, and prostate, cancer"; After removing stop words, we have "prostate, cancer, patients, treatment, disease". 
+```{r}
+pubmed %>%
+  filter(term %in% "prostate cancer") %>%
+  unnest_tokens(word, abstract) %>%
+  count(word, sort = TRUE) %>%
+  top_n(5, n) 
+
+pubmed %>%
+  filter(term %in% "prostate cancer") %>%
+  unnest_tokens(word, abstract) %>%
+  anti_join(stop_words)%>%
+  count(word, sort = TRUE) %>%
+  top_n(5, n) 
+
+```
+
+If we token abstract in to bi-grams, we have the following results: 
+```{r}
+#token bi-gram
+pubmed %>%
+  filter(term %in% "prostate cancer") %>%
+  unnest_ngrams(ngram, abstract, n = 2) %>%
+  count(ngram, sort = TRUE) %>%
+  top_n(10, n) %>%
+  ggplot(aes(x = n, y = fct_reorder(ngram, n)))+
+  geom_col()
+```
+
+For term "preeclampsia", we can see the most 5 common words before removing stop_words are: "the, of, and, in, to"; After removing stop words, we have "pre, eclampsia, preeclampsia, women, pregnancy". 
+```{r}
+pubmed %>%
+  filter(term %in% "preeclampsia") %>%
+  unnest_tokens(word, abstract) %>%
+  count(word, sort = TRUE) %>%
+  top_n(5, n) 
+
+pubmed %>%
+  filter(term %in% "preeclampsia") %>%
+  unnest_tokens(word, abstract) %>%
+  anti_join(stop_words)%>%
+  count(word, sort = TRUE) %>%
+  top_n(5, n) 
+
+```
+
+If we token abstract in to bi-grams, we have the following results: 
+```{r}
+#token bi-gram
+pubmed %>%
+  filter(term %in% "preeclampsia") %>%
+  unnest_ngrams(ngram, abstract, n = 2) %>%
+  count(ngram, sort = TRUE) %>%
+  top_n(10, n) %>%
+  ggplot(aes(x = n, y = fct_reorder(ngram, n)))+
+  geom_col()
+```
+
+For term "cystic fibrosis", we can see the most 5 common words before removing stop_words are: "the, of, and, in, to"; After removing stop words, we have "fibrosis, cystic, patients, cd, disease". 
+```{r}
+pubmed %>%
+  filter(term %in% "cystic fibrosis") %>%
+  unnest_tokens(word, abstract) %>%
+  count(word, sort = TRUE) %>%
+  top_n(5, n) 
+
+pubmed %>%
+  filter(term %in% "cystic fibrosis") %>%
+  unnest_tokens(word, abstract) %>%
+  anti_join(stop_words)%>%
+  count(word, sort = TRUE) %>%
+  top_n(5, n) 
+
+```
+
+If we token abstract in to bi-grams, we have the following results: 
+```{r}
+#token bi-gram
+pubmed %>%
+  filter(term %in% "cystic fibrosis") %>%
+  unnest_ngrams(ngram, abstract, n = 2) %>%
+  count(ngram, sort = TRUE) %>%
+  top_n(10, n) %>%
+  ggplot(aes(x = n, y = fct_reorder(ngram, n)))+
+  geom_col()
+```
+
+For term "meningitis", we can see the most 5 common words before removing stop_words are: "the, of, and, in, a"; After removing stop words, we have "patients, meningitis, meningeal, csf, clinical". 
+```{r}
+pubmed %>%
+  filter(term %in% "meningitis") %>%
+  unnest_tokens(word, abstract) %>%
+  count(word, sort = TRUE) %>%
+  top_n(5, n) 
+
+pubmed %>%
+  filter(term %in% "meningitis") %>%
+  unnest_tokens(word, abstract) %>%
+  anti_join(stop_words)%>%
+  count(word, sort = TRUE) %>%
+  top_n(5, n) 
+
+```
+
+If we token abstract in to bi-grams, we have the following results: 
+```{r}
+#token bi-gram
+pubmed %>%
+  filter(term %in% "meningitis") %>%
+  unnest_ngrams(ngram, abstract, n = 2) %>%
+  count(ngram, sort = TRUE) %>%
+  top_n(10, n) %>%
+  ggplot(aes(x = n, y = fct_reorder(ngram, n)))+
+  geom_col()
+```
+
+In summary, we can see that before removing the stop words, the tokens shows nothing interesting. After we remove the stop words, the most 5 frequent tokens for each term show words like "patients" and "disease". 
+
+
+Calculate the TF-IDF value for each word-search term combination. (here you want the search term to be the “document”) What are the 5 tokens from each search term with the highest TF-IDF value? How are the results different from the answers you got in question 1?
+
+We can see that for term "covid", the 5 tokens with highest TF-IDF are "covid, pandemic, coronavirus, sars, cov"; for the term "prostate cancer", the 5 tokens with highest TF-IDF are "prostate, androgen, psa, prostatectomy, placenta"; for the term "preeclampsia", the 5 tokens with highest TF-IDF are "eclampsia, preeclampsia, pregnancy, maternal, gestational"; for the term "meningitis", the 5 tokens with highest TF-IDF are "meningitis, meningeal, pachymeningitis, csf, meninges"; for the term "cystic fibrosis", the 5 tokens with highest TF-IDF are "cf, fibrosis, cystic, cftr, sweat". The results are all different from what we have in question 1. 
+
+```{r}
+pubmed %>%
+  unnest_tokens(word, abstract) %>%
+  count(word, term) %>%
+  bind_tf_idf(word, term, n) %>%
+  arrange(desc(tf_idf))
+```
 
 
 
