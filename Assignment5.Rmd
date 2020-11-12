@@ -1,0 +1,85 @@
+---
+title: "PM566 HW5"
+author: "Sherry Shen"
+output: 
+    html_document:
+        toc: TRUE
+        toc_float: TRUE
+---
+<br>
+
+This is my PM566 HW5 website.
+
+```{r setup, message=FALSE, echo=FALSE, warning=FALSE}
+library(data.table)
+library(tidyverse)
+library(dplyr)
+library(plotly)
+library(DT)
+library(knitr)
+
+# Initialize code chunk options
+opts_chunk$set(
+  warning = FALSE,
+  message = FALSE,
+  eval=TRUE,
+  echo = TRUE,
+  cache = FALSE,
+  fig.width = 7, 
+  fig.align = 'center',
+  fig.asp = 0.618,
+  out.width = "700px")
+```
+
+```{r load-data, echo=FALSE}
+source("process_HW5.R")
+```
+
+<br>
+
+# Plot of number of new cases vs date outside of China
+
+```{r}
+#remove data that do not have number of case record
+newcase_data=new[-(which(is.na(new$case_in_country))),c(2,3,5)]
+dim(newcase_data)
+
+#compute new cases for each country
+a=as.data.frame(table(newcase_data$`reporting date`))
+
+a %>% 
+  plot_ly(x = ~Var1, y = ~Freq, type = "scatter", mode = "lines") %>%
+  layout(xaxis = list(title="Date"), yaxis = list(title="Number of cases"), title = "Number of new cases outside of China")
+```
+
+From the plot we can see that, at the beginning 2 months of the COVID-29 pandemic, number of new cases outside of China is increasing as time increase. It can tell us that the virus has already been spread out around the world. 
+<br>
+
+# Evaluate the length of incubation period. 
+
+```{r}
+new %>% plot_ly(y = ~exposure_start, type = "box", name = "Exposure Start Date") %>% 
+  add_trace(y = ~symptom_onset, type = "box", name = "Symptom_onset Date")
+
+```
+
+We can see there is around 14 days between the median of symptom onset date and exposure start date, which is the same as the incubation period of the COVID-19 virus. 
+
+<br>
+
+# Plot of the COVID cases outside of China
+
+```{r}
+b=as.data.frame(table(newcase_data$country))
+b %>%
+  group_by(Var1) %>%
+  plot_ly(labels = ~ Var1, values = ~Freq, textposition = "inside") %>%
+  add_pie(hole = 0.6) %>%
+  layout(title = "Donus Chatrt of total numbe cases outside of China")
+        
+```
+
+We can see that, countries who have large number of new cases are those located around China. This can well explain that China might be the original place of the COVID-19 virus. 
+
+<br>
+<br>
